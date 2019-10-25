@@ -106,6 +106,7 @@ emapplot.enrichResult <- function(x, showCategory = 30, color="p.adjust", layout
         scale_size(range=c(3, 8))
 }
 
+# Make appropriate changes to several functions
 geneID.compareClusterResult <- function(x) {
     as.character(x@compareClusterResult$geneID)
 }
@@ -116,6 +117,7 @@ geneInCategory.compareClusterResult <- function(x) {
 merge_compareClusterResult <- function(yy) {
 	yy_union<- yy[!duplicated(yy$ID),]
 	rownames(yy_union) <- yy_union$ID
+	# Make a for loop to merge genes
 	for(i in seq_len(dim(yy)[1])) {
 	    gene1 <- unlist(strsplit(yy[i,"geneID"],"/", fixed = TRUE))
 		gene2 <- unlist(strsplit(yy_union[yy[i,"ID"],"geneID"],"/", fixed = TRUE))
@@ -125,6 +127,37 @@ merge_compareClusterResult <- function(yy) {
 	}
 	return(yy_union)
 }
+
+geom_scatterpie_legend2 <- function (radius, x, y, n = 5, labeller) 
+{
+    if (length(radius) > n) {
+        radius <- unique(sapply(seq(min(radius), max(radius), 
+            length.out = n), scatterpie:::round_digit))
+    }
+    label <- FALSE
+    if (!missing(labeller)) {
+        if (!inherits(labeller, "function")) {
+            stop("labeller should be a function for converting radius")
+        }
+        label <- TRUE
+    }
+    dd <- data.frame(r = radius, start = 0, end = 2 * pi, x = x, 
+        y = y + radius - max(radius), maxr = max(radius))
+    if (label) {
+        dd$label <- labeller(dd$r)
+    }
+    else {
+	# Change the label to the actual number of genes
+        dd$label <- (dd$r)^2*500
+    }
+    list(ggforce::geom_arc_bar(aes_(x0 = ~x, y0 = ~y, r0 = ~r, r = ~r, 
+        start = ~start, end = ~end), data = dd, inherit.aes = FALSE), 
+        geom_segment(aes_(x = ~x, xend = ~x + maxr * 1.5, y = ~y + 
+            r, yend = ~y + r), data = dd, inherit.aes = FALSE), 
+        geom_text(aes_(x = ~x + maxr * 1.6, y = ~y + r, label = ~label), 
+            data = dd, hjust = "left", inherit.aes = FALSE))
+}
+
 
 emapplot.compareClusterResult <- function(x, showCategory = 30, color="p.adjust", layout = "kk", ...) {
 
@@ -140,6 +173,7 @@ y <- as.data.frame(x)
 
 #geneSets <- geneInCategory(x) ## use core gene for gsea result
 
+# Data structure transformation, combining the same ID (Description) genes
 
 
 y_union <- merge_compareClusterResult(y)
@@ -175,6 +209,7 @@ y_union <- merge_compareClusterResult(y)
 	}
 	
 
+# then add the pie plot	
 data_pie <- as.matrix(y[,1:2])
 ID_unique <- unique(data_pie[,2])
 Cluster_unique <- unique(data_pie[,1])
@@ -184,48 +219,32 @@ colnames(ID_Cluster_mat) <- Cluster_unique
 for(i in seq_len(dim(data_pie)[1])) {
     ID_Cluster_mat[data_pie[i,2],data_pie[i,1]] <- ID_Cluster_mat[data_pie[i,2],data_pie[i,1]]+1
 }
+ID_Cluster_mat <- as.data.frame(ID_Cluster_mat)
+ID_Cluster_mat$region <- factor(1:dim(ID_Cluster_mat)[1])
 
-dff <- melt(t(ID_Cluster_mat))
-names(dff) <- c("Cluster","ID","value")
-
-
-
-nn <- dim(ID_Cluster_mat)[2]
-pies <- rep(1,nrow(dff)/nn)
-k <-  1
-for(i in seq(1,nrow(dff),nn)) {
-     df <- dff[i:(i+nn-1),]
-	 outfile <- paste0(df[1,"ID"], ".png")
-	 ggplot(df, aes(x = 1, value, fill = Cluster)) +
-        geom_col() + coord_polar(theta = 'y') +
-        ggtitle(df[1,"ID"]) +
-        theme_void() + theme_transparent() +
-        theme(legend.position = "none",
-              plot.title = element_text(size = rel(6), hjust = 0.5))+
-			  ggsave(outfile, bg = "transparent")
-	pies[k] <- outfile
-	k <- k + 1
- 
-}
-
-	  p <- ggraph(g, layout=layout)
+  p <- ggraph(g, layout=layout)
 
     if (length(E(g)$width) > 0) {
         p <- p + geom_edge_link(alpha=.8, aes_(width=~I(width)), colour='darkgrey')
     }
 
-
-	
-	
-	
 aa <- p$data
-
-radius <- sqrt(aa$size / 3000)
 	
+ID_Cluster_mat$x <- aa$x
+ID_Cluster_mat$y <- aa$y
 
-p + geom_image(aes(image = pies,x=aa$x,y=aa$y,size = I(radius)))+
-scale_color_continuous(low="red", high="blue", name = color, guide=guide_colorbar(reverse=TRUE)) +
-theme_void()
+
+ID_Cluster_mat$radius <- sqrt(aa$size / 500)
+
+x_loc1 <- min(ID_Cluster_mat$x)
+y_loc1 <- min(ID_Cluster_mat$y)
+x_loc2 <- min(ID_Cluster_mat$x)
+y_loc2 <- min(ID_Cluster_mat$y)+0.1*(max(ID_Cluster_mat$y)-min(ID_Cluster_mat$y))
+
+p + geom_scatterpie(aes(x=x,y=y, group=region,r=radius), data=ID_Cluster_mat,
+                           cols=colnames(ID_Cluster_mat)[1:(ncol(ID_Cluster_mat)-4)],color=NA) + coord_equal()+
+						    geom_scatterpie_legend2(ID_Cluster_mat$radius, x=x_loc1, y=y_loc1)+
+							 annotate("text", label = "gene number", x = x_loc2, y = y_loc2, size = 4, colour = "red")
 }
 
 emapplot.compareClusterResult(xx)
