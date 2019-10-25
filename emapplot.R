@@ -116,7 +116,6 @@ geneInCategory.compareClusterResult <- function(x) {
 merge_compareClusterResult <- function(yy) {
 	yy_union<- yy[!duplicated(yy$ID),]
 	rownames(yy_union) <- yy_union$ID
-	#做一个for循环来合并基因
 	for(i in seq_len(dim(yy)[1])) {
 	    gene1 <- unlist(strsplit(yy[i,"geneID"],"/", fixed = TRUE))
 		gene2 <- unlist(strsplit(yy_union[yy[i,"ID"],"geneID"],"/", fixed = TRUE))
@@ -141,7 +140,6 @@ y <- as.data.frame(x)
 
 #geneSets <- geneInCategory(x) ## use core gene for gsea result
 
-#进行数据结构转换，将同个ID（Description）的基因进行合并
 
 
 y_union <- merge_compareClusterResult(y)
@@ -166,7 +164,6 @@ y_union <- merge_compareClusterResult(y)
         wd <- wd[!is.na(wd[,3]),]
 		g <- graph.data.frame(wd[,-3], directed=FALSE)
         E(g)$width=sqrt(wd[,3] * 5)
-		#先不对边的阈值进行筛选
         g <- delete.edges(g, E(g)[wd[,3] < 0.05])
         idx <- unlist(sapply(V(g)$name, function(x) which(x == y_union$Description)))
 
@@ -178,8 +175,6 @@ y_union <- merge_compareClusterResult(y)
 	}
 	
 
-#下面把饼图添上去就行了	
-#先画出所有需要的饼图，使用的数据仅为两列
 data_pie <- as.matrix(y[,1:2])
 ID_unique <- unique(data_pie[,2])
 Cluster_unique <- unique(data_pie[,1])
@@ -194,7 +189,7 @@ dff <- melt(t(ID_Cluster_mat))
 names(dff) <- c("Cluster","ID","value")
 
 
-#先画出每一张饼图
+
 nn <- dim(ID_Cluster_mat)[2]
 pies <- rep(1,nrow(dff)/nn)
 k <-  1
@@ -213,7 +208,6 @@ for(i in seq(1,nrow(dff),nn)) {
  
 }
 
-#将饼图加到网络图中
 	  p <- ggraph(g, layout=layout)
 
     if (length(E(g)$width) > 0) {
